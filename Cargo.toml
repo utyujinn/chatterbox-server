@@ -1,0 +1,25 @@
+[package]
+name = "chatterbox-server"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Chatterbox Turbo (ONNX) for Mutelink: English text in, speech in a registered reference voice out, with laughs, sighs and other tags. Runs as a child process of the app, like openvoice-server."
+
+# Its own workspace, apart from tauri-src/src-tauri's: this crate needs the upstream `ort`, and the app's graph already holds
+# voicevox_core's fork of it (both declare `links = "onnxruntime"`, which Cargo allows only once per graph). Build it on its own:
+# `cargo build --release` in this folder.
+[workspace]
+
+[dependencies]
+anyhow = "1"
+ebur128 = "0.1"
+half = "2"
+hound = "3.5.1"
+ort = { version = "2.0.0-rc.14", default-features = false, features = ["load-dynamic", "ndarray", "cuda", "half"] }
+realfft = "3.5.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokenizers = { version = "0.21", default-features = false, features = ["onig"] }
+
+[profile.test]
+opt-level = 2

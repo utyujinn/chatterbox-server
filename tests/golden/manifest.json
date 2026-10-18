@@ -1,0 +1,364 @@
+{
+ "config": {
+  "ref_encoder": "ref_encoder_w16.onnx",
+  "embed_tokens": "fp16 (CPU EP)",
+  "language_model": "fp16 (CUDA EP)",
+  "conditional_decoder": "fp16_det (CUDA EP)",
+  "opt": {
+   "spk": "ve",
+   "t3p": "ref",
+   "start": "one",
+   "dec": "ref",
+   "temperature": 0.8,
+   "top_k": 1000,
+   "top_p": 0.95,
+   "rep": 1.2,
+   "max_new": 1000
+  },
+  "stream": {
+   "first": 12,
+   "growth": 2.0,
+   "max_chunk": 64,
+   "hold": 8,
+   "xfade": 480,
+   "search": 960,
+   "align": 60
+  }
+ },
+ "refs": {
+  "us_f_50s": {
+   "source": "us_f_50s_A.wav",
+   "lufs_raw": -24.065034592107587,
+   "gain": 0.7132663400707989,
+   "n24": 289584,
+   "n16": 193056,
+   "ve_trim_16k": [
+    0,
+    193056
+   ],
+   "n_partials": 15,
+   "t3_tokens": 302,
+   "dec_tokens": 250,
+   "dec_feat_frames": 500,
+   "texts": {
+    "M": {
+     "text": "I just got back from the convention, and honestly, I'm too tired to even talk about it right now.",
+     "normalized": "I just got back from the convention, and honestly, I'm too tired to even talk about it right now.",
+     "n_input_ids": 25,
+     "n_tokens": 133,
+     "sampler_cases": [
+      {
+       "step": 0,
+       "history_len": 1,
+       "u": 0.6823518632481435,
+       "token": 3704,
+       "n_nonzero": 43
+      },
+      {
+       "step": 1,
+       "history_len": 1,
+       "u": 0.053821018802222675,
+       "token": 1951,
+       "n_nonzero": 7
+      },
+      {
+       "step": 5,
+       "history_len": 5,
+       "u": 0.22035987277261138,
+       "token": 1041,
+       "n_nonzero": 64
+      },
+      {
+       "step": 17,
+       "history_len": 17,
+       "u": 0.1843718106986697,
+       "token": 2139,
+       "n_nonzero": 11
+      },
+      {
+       "step": 31,
+       "history_len": 31,
+       "u": 0.17590590108503035,
+       "token": 168,
+       "n_nonzero": 9
+      }
+     ],
+     "stream_chunk_samples": [
+      11400,
+      22800,
+      45591,
+      50732
+     ],
+     "stream_chunk_info": [
+      {
+       "n_tokens": 20,
+       "target": 12
+      },
+      {
+       "n_tokens": 44,
+       "target": 36
+      },
+      {
+       "n_tokens": 92,
+       "target": 84
+      },
+      {
+       "n_tokens": 133,
+       "final": true
+      }
+     ],
+     "wav_det_samples": 130560
+    },
+    "E": {
+     "text": "Wait... you actually did that for me? [laugh] Oh my gosh, thank you so much!",
+     "normalized": "Wait... you actually did that for me? [laugh] Oh my gosh, thank you so much!",
+     "n_input_ids": 23,
+     "n_tokens": 154,
+     "sampler_cases": [
+      {
+       "step": 0,
+       "history_len": 1,
+       "u": 0.6823518632481435,
+       "token": 3701,
+       "n_nonzero": 31
+      },
+      {
+       "step": 1,
+       "history_len": 1,
+       "u": 0.053821018802222675,
+       "token": 4218,
+       "n_nonzero": 4
+      },
+      {
+       "step": 5,
+       "history_len": 5,
+       "u": 0.22035987277261138,
+       "token": 2411,
+       "n_nonzero": 42
+      },
+      {
+       "step": 17,
+       "history_len": 17,
+       "u": 0.1843718106986697,
+       "token": 1950,
+       "n_nonzero": 8
+      },
+      {
+       "step": 31,
+       "history_len": 31,
+       "u": 0.17590590108503035,
+       "token": 1214,
+       "n_nonzero": 67
+      }
+     ],
+     "stream_chunk_samples": [
+      11280,
+      23205,
+      46095,
+      70200
+     ],
+     "stream_chunk_info": [
+      {
+       "n_tokens": 20,
+       "target": 12
+      },
+      {
+       "n_tokens": 44,
+       "target": 36
+      },
+      {
+       "n_tokens": 92,
+       "target": 84
+      },
+      {
+       "n_tokens": 154,
+       "final": true
+      }
+     ],
+     "wav_det_samples": 150720
+    }
+   }
+  },
+  "greet": {
+   "source": "greet_A.wav",
+   "lufs_raw": -15.380137854228341,
+   "gain": 0.2624260192830628,
+   "n24": 213907,
+   "n16": 142605,
+   "ve_trim_16k": [
+    3072,
+    137728
+   ],
+   "n_partials": 10,
+   "t3_tokens": 223,
+   "dec_tokens": 222,
+   "dec_feat_frames": 445,
+   "texts": {
+    "M": {
+     "text": "I just got back from the convention, and honestly, I'm too tired to even talk about it right now.",
+     "normalized": "I just got back from the convention, and honestly, I'm too tired to even talk about it right now.",
+     "n_input_ids": 25,
+     "n_tokens": 153,
+     "sampler_cases": [
+      {
+       "step": 0,
+       "history_len": 1,
+       "u": 0.6823518632481435,
+       "token": 3704,
+       "n_nonzero": 15
+      },
+      {
+       "step": 1,
+       "history_len": 1,
+       "u": 0.053821018802222675,
+       "token": 4299,
+       "n_nonzero": 2
+      },
+      {
+       "step": 5,
+       "history_len": 5,
+       "u": 0.22035987277261138,
+       "token": 403,
+       "n_nonzero": 222
+      },
+      {
+       "step": 17,
+       "history_len": 17,
+       "u": 0.1843718106986697,
+       "token": 2112,
+       "n_nonzero": 4
+      },
+      {
+       "step": 31,
+       "history_len": 31,
+       "u": 0.17590590108503035,
+       "token": 32,
+       "n_nonzero": 56
+      }
+     ],
+     "stream_chunk_samples": [
+      10920,
+      22920,
+      46202,
+      69193
+     ],
+     "stream_chunk_info": [
+      {
+       "n_tokens": 20,
+       "target": 12
+      },
+      {
+       "n_tokens": 44,
+       "target": 36
+      },
+      {
+       "n_tokens": 92,
+       "target": 84
+      },
+      {
+       "n_tokens": 153,
+       "final": true
+      }
+     ],
+     "wav_det_samples": 149280
+    },
+    "E": {
+     "text": "Wait... you actually did that for me? [laugh] Oh my gosh, thank you so much!",
+     "normalized": "Wait... you actually did that for me? [laugh] Oh my gosh, thank you so much!",
+     "n_input_ids": 23,
+     "n_tokens": 188,
+     "sampler_cases": [
+      {
+       "step": 0,
+       "history_len": 1,
+       "u": 0.6823518632481435,
+       "token": 3701,
+       "n_nonzero": 21
+      },
+      {
+       "step": 1,
+       "history_len": 1,
+       "u": 0.053821018802222675,
+       "token": 4299,
+       "n_nonzero": 2
+      },
+      {
+       "step": 5,
+       "history_len": 5,
+       "u": 0.22035987277261138,
+       "token": 2915,
+       "n_nonzero": 86
+      },
+      {
+       "step": 17,
+       "history_len": 17,
+       "u": 0.1843718106986697,
+       "token": 6486,
+       "n_nonzero": 1
+      },
+      {
+       "step": 31,
+       "history_len": 31,
+       "u": 0.17590590108503035,
+       "token": 978,
+       "n_nonzero": 64
+      }
+     ],
+     "stream_chunk_samples": [
+      10800,
+      23044,
+      46236,
+      60955,
+      41880
+     ],
+     "stream_chunk_info": [
+      {
+       "n_tokens": 20,
+       "target": 12
+      },
+      {
+       "n_tokens": 44,
+       "target": 36
+      },
+      {
+       "n_tokens": 92,
+       "target": 84
+      },
+      {
+       "n_tokens": 156,
+       "target": 148
+      },
+      {
+       "n_tokens": 188,
+       "final": true
+      }
+     ],
+     "wav_det_samples": 182880
+    }
+   }
+  }
+ },
+ "tokenizer_special": {
+  "<|endoftext|>": 50256,
+  "[angry]": 50257,
+  "[fear]": 50258,
+  "[surprised]": 50259,
+  "[whispering]": 50260,
+  "[advertisement]": 50261,
+  "[dramatic]": 50262,
+  "[narration]": 50263,
+  "[crying]": 50264,
+  "[happy]": 50265,
+  "[sarcastic]": 50266,
+  "[clear throat]": 50267,
+  "[sigh]": 50268,
+  "[shush]": 50269,
+  "[cough]": 50270,
+  "[groan]": 50271,
+  "[sniff]": 50272,
+  "[gasp]": 50273,
+  "[chuckle]": 50274,
+  "[laugh]": 50275
+ },
+ "onnxruntime": "1.31.0"
+}

@@ -1,0 +1,75 @@
+name: Release server
+
+# Push a tag `server-vX.Y.Z` (the version in Cargo.toml must be X.Y.Z, committed before tagging) to build the Windows executable and
+# publish it as the GitHub release of that tag, with its SHA-256 in the notes: Mutelink pins that checksum (chatterbox_install.rs).
+# "Run workflow" (workflow_dispatch) only builds and tests, and keeps the exe as a build artifact, to try a change without releasing.
+on:
+  push:
+    tags:
+      - "server-v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # The registry and git downloads are cached; target/ is not, so the executable is always built from the sources of the tag.
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-targets: false
+
+      - name: Check the tag against Cargo.toml
+        if: startsWith(github.ref, 'refs/tags/server-v')
+        shell: pwsh
+        run: |
+          $tagVersion = "${{ github.ref_name }}".Substring("server-v".Length)
+          $cargoVersion = (Select-String -Path Cargo.toml -Pattern '^version = "(.+)"' | Select-Object -First 1).Matches[0].Groups[1].Value
+          if ($tagVersion -ne $cargoVersion) { throw "tag is $tagVersion but Cargo.toml says $cargoVersion" }
+
+      # The tests that need no models or GPU (the ones that do are #[ignore]d: tests/engine.rs, tests/lm.rs, tests/server.rs). --locked: the build uses exactly
+      # the versions in Cargo.lock.
+      - name: Test
+        run: cargo test --release --locked
+
+      - name: Build
+        run: cargo build --release --locked
+
+      - name: Checksum
+        id: checksum
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash target/release/chatterbox-server.exe -Algorithm SHA256).Hash.ToLower()
+          $size = (Get-Item target/release/chatterbox-server.exe).Length
+          "sha256=$hash" >> $env:GITHUB_OUTPUT
+          "size=$size" >> $env:GITHUB_OUTPUT
+
+      - name: Keep the executable (manual runs)
+        if: ${{ !startsWith(github.ref, 'refs/tags/server-v') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatterbox-server
+          path: target/release/chatterbox-server.exe
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/server-v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $notes = @"
+          The Windows executable, built by GitHub Actions from this tag (``cargo build --release --locked``). Needs the models and data of release ``models-v1`` and an ONNX Runtime 1.23 GPU build with the CUDA 12 / cuDNN 9 libraries. Used by Mutelink.
+
+          - SHA-256: ``${{ steps.checksum.outputs.sha256 }}``
+          - Size: ${{ steps.checksum.outputs.size }} bytes
+          "@
+          $title = "chatterbox-server v" + "${{ github.ref_name }}".Substring("server-v".Length)
+          gh release create "${{ github.ref_name }}" target/release/chatterbox-server.exe --title $title --notes "$notes"
