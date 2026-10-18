@@ -192,3 +192,41 @@ fn speaking_in_the_registered_voice_writes_audio() {
         println!("{name} streamed: first audio after {:.2} s, {:.1} s of audio in {:.2} s", first.unwrap(), samples as f64 / 24000.0, started.elapsed().as_secs_f64());
     }
 }
+
+#[test]
+#[ignore]
+fn a_very_short_recording_is_repeated_and_still_speaks() {
+    let mut engine = load_engine();
+    let full = hound::WavReader::open(golden("ref.wav")).unwrap();
+    let spec = full.spec();
+    let samples: Vec<i16> = full.into_samples::<i16>().map(|s| s.unwrap()).collect();
+    let rate = spec.sample_rate as usize;
+    let out = root().join("target/test-audio");
+    std::fs::create_dir_all(&out).unwrap();
+    for (name, seconds) in [("short_0_6", 0.6f64), ("short_1_2", 1.2)] {
+        let start = 3 * rate;
+        let clip = &samples[start..start + (seconds * rate as f64) as usize];
+        let mut bytes = std::io::Cursor::new(Vec::new());
+        {
+            let mut writer = hound::WavWriter::new(&mut bytes, spec).unwrap();
+            for &v in clip {
+                writer.write_sample(v).unwrap();
+            }
+            writer.finalize().unwrap();
+        }
+        let voice = engine.register_voice(&bytes.into_inner()).unwrap();
+        let wave = engine.synthesize(&voice, "Hello, nice to meet you.", &SamplerSettings::default(), &mut Rng::new(0)).unwrap();
+        assert!(wave.len() > 24000, "{name}: {} samples", wave.len());
+        std::fs::write(out.join(format!("{name}.wav")), chatterbox_server::wavio::encode_wav(&wave, 24000)).unwrap();
+    }
+    // nothing but silence is refused
+    let mut silent = std::io::Cursor::new(Vec::new());
+    {
+        let mut writer = hound::WavWriter::new(&mut silent, hound::WavSpec { channels: 1, sample_rate: 24000, bits_per_sample: 16, sample_format: hound::SampleFormat::Int }).unwrap();
+        for _ in 0..24000 {
+            writer.write_sample(0i16).unwrap();
+        }
+        writer.finalize().unwrap();
+    }
+    assert!(engine.register_voice(&silent.into_inner()).is_err());
+}

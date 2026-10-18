@@ -14,9 +14,9 @@ const T3_RATE: u32 = 16000;
 // The decoder's prompt is the first 10 s of the reference, the language model's the first 15 s
 const DECODER_REFERENCE_SAMPLES: usize = 10 * REFERENCE_RATE as usize;
 const T3_REFERENCE_SAMPLES: usize = 15 * T3_RATE as usize;
-// Below TILE_TO_SECONDS a recording is repeated (see `register_voice`); below MIN_SECONDS it is refused
+// Below TILE_TO_SECONDS a recording is repeated (see `register_voice`); below MIN_SECONDS of sound it is refused (nothing to repeat)
 const TILE_TO_SECONDS: f64 = 6.0;
-const MIN_SECONDS: f64 = 2.0;
+const MIN_SECONDS: f64 = 0.5;
 const TILE_GAP_SECONDS: f64 = 0.15;
 
 fn ort_error(err: ort::Error) -> anyhow::Error {

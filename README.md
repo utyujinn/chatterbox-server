@@ -22,8 +22,8 @@ cargo test --release --test lm --test engine --test server -- --ignored --nocapt
 
 ## What it does
 
-- **Registering a voice** (`register_voice`): a recording of 2 s or more (shorter than 6 s it is repeated until it is long enough, because
-  the language model babbles on a prompt under about 5 s). The recording is brought to -27 LUFS, the reference encoders run once on the CPU,
+- **Registering a voice** (`register_voice`): a recording with 0.5 s of sound or more (shorter than 6 s it is repeated, with a little silence between the repeats, until it is
+  long enough, because the language model babbles on a prompt under about 5 s; the shorter the recording, the less the voice resembles it). The recording is brought to -27 LUFS, the reference encoders run once on the CPU,
   and what speech needs from it (about 160 KB) is written to a voice file. The recording is not kept.
 - **Speaking** (`synthesize`): the text is cut into pieces of about a sentence; each piece goes through the language model (GPT-2 medium,
   KV cache kept on the GPU) and the decoder. With `stream`, the audio of a piece comes in chunks, the first after about 0.3 s, joined with
