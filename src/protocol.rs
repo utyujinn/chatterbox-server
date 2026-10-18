@@ -4,12 +4,21 @@
 // A request normally gets one response. `synthesize` gets one response per piece of text, each with `"more": true`, and a last
 // one with `"more": false` and an empty body, so the app can start playing the first piece while the next is made.
 
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::io::{self, Read, Write};
 
 pub struct Frame {
     pub header: Value,
     pub body: Vec<u8>,
+}
+
+// Reads and drops `len` bytes.
+fn skip(input: &mut impl Read, len: usize) -> io::Result<()> {
+    let skipped = io::copy(&mut input.take(len as u64), &mut io::sink())?;
+    if skipped != len as u64 {
+        return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "the request was cut short"));
+    }
+    Ok(())
 }
 
 fn read_u32(input: &mut impl Read) -> io::Result<usize> {
@@ -36,14 +45,20 @@ pub fn read_frame(input: &mut impl Read) -> io::Result<Option<Frame>> {
     }
     input.read_exact(&mut first[1..])?;
     let header_len = u32::from_le_bytes(first) as usize;
+    // A request over the limits is read off the pipe without being kept, so that the stream stays in step, and becomes a frame marked
+    // `too_large`, which the server answers with an error instead of ending the process (and unloading the models).
     if header_len > MAX_HEADER {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "the header is too large"));
+        skip(input, header_len)?;
+        let body_len = read_u32(input)?;
+        skip(input, body_len)?;
+        return Ok(Some(Frame { header: json!({"too_large": true}), body: Vec::new() }));
     }
     let mut header = vec![0u8; header_len];
     input.read_exact(&mut header)?;
     let body_len = read_u32(input)?;
     if body_len > MAX_BODY {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "the body is too large"));
+        skip(input, body_len)?;
+        return Ok(Some(Frame { header: json!({"too_large": true}), body: Vec::new() }));
     }
     let mut body = vec![0u8; body_len];
     input.read_exact(&mut body)?;
@@ -101,6 +116,19 @@ mod tests {
         bytes.truncate(bytes.len() - 2);
         assert!(read_frame(&mut io::Cursor::new(bytes)).is_err());
         let huge = (u32::MAX).to_le_bytes().to_vec();
-        assert!(read_frame(&mut io::Cursor::new(huge)).is_err());
+        assert!(read_frame(&mut io::Cursor::new(huge)).is_err(), "a length the stream cannot supply is an error");
+    }
+
+    #[test]
+    fn a_request_over_the_limit_is_skipped_and_marked() {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&2u32.to_le_bytes());
+        bytes.extend_from_slice(b"{}");
+        bytes.extend_from_slice(&((MAX_BODY + 1) as u32).to_le_bytes());
+        bytes.resize(bytes.len() + MAX_BODY + 1, 7);
+        write_frame(&mut bytes, &json!({"cmd": "after"}), &[]).unwrap();
+        let mut input = io::Cursor::new(bytes);
+        assert_eq!(read_frame(&mut input).unwrap().unwrap().header["too_large"], true);
+        assert_eq!(read_frame(&mut input).unwrap().unwrap().header["cmd"], "after", "the stream is still in step");
     }
 }

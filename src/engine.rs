@@ -72,6 +72,7 @@ pub struct Engine {
     pub(crate) decoder: Session,
     gpu_memory: MemoryInfo<'static>,
     cpu_memory: MemoryInfo<'static>,
+    use_cuda: bool,
     kv_names: Vec<String>,
     present_names: Vec<String>,
     pub(crate) tokenizer: Tokenizer,
@@ -112,6 +113,7 @@ impl Engine {
             decoder: session(environment, &dir.join("conditional_decoder_fp16_det.onnx"), config.use_cuda)?,
             gpu_memory: MemoryInfo::new(AllocationDevice::CUDA, 0, AllocatorType::Device, MemoryType::Default).map_err(|e| anyhow!("{e}"))?,
             cpu_memory: MemoryInfo::new(AllocationDevice::CPU, 0, AllocatorType::Arena, MemoryType::CPUOutput).map_err(|e| anyhow!("{e}"))?,
+            use_cuda: config.use_cuda,
             kv_names,
             present_names,
             tokenizer: Tokenizer::from_file(config.data_dir.join("tokenizer.json")).map_err(|e| anyhow!("tokenizer.json: {e}"))?,
@@ -169,14 +171,17 @@ impl Engine {
         }
         binding.bind_output_to_device("logits", &self.cpu_memory).map_err(e)?;
         for name in &self.present_names {
-            binding.bind_output_to_device(name.as_str(), &self.gpu_memory).map_err(e)?;
+            // the KV cache stays where the graph runs: on the GPU, or in main memory when there is no GPU
+            binding.bind_output_to_device(name.as_str(), if self.use_cuda { &self.gpu_memory } else { &self.cpu_memory }).map_err(e)?;
         }
         let mut outputs = self.lm.run_binding(&binding).map_err(e)?;
         let logits = {
             let (shape, data) = outputs["logits"].try_extract_tensor::<f32>().map_err(e)?;
             ensure!(shape.len() == 3 && shape[2] as usize == VOCAB, "unexpected logits shape {shape:?}");
             let last = (shape[1] as usize - 1) * VOCAB;
-            data[last..last + VOCAB].to_vec()
+            let row = data[last..last + VOCAB].to_vec();
+            ensure!(row.iter().all(|v| v.is_finite()), "the language model gave logits that are not numbers");
+            row
         };
         let mut past = Vec::with_capacity(self.present_names.len());
         for name in &self.present_names {

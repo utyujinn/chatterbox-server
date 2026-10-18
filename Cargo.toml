@@ -1,6 +1,6 @@
 [package]
 name = "chatterbox-server"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "MIT"
 description = "Chatterbox Turbo (ONNX) for Mutelink: English text in, speech in a registered reference voice out, with laughs, sighs and other tags. Runs as a child process of the app, like openvoice-server."

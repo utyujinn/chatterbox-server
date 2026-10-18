@@ -20,7 +20,7 @@ pub fn probabilities(logits: &[f32], history: &[i64], settings: &SamplerSettings
     // top-k: everything below the k-th largest value goes (ties at the k-th are kept)
     if settings.top_k < x.len() {
         let mut sorted = x.clone();
-        sorted.sort_by(|a, b| b.partial_cmp(a).unwrap());
+        sorted.sort_by(|a, b| b.total_cmp(a));
         let kth = sorted[settings.top_k - 1];
         for v in x.iter_mut() {
             if *v < kth {
@@ -30,7 +30,7 @@ pub fn probabilities(logits: &[f32], history: &[i64], settings: &SamplerSettings
     }
     // top-p: sort ascending, drop the entries whose cumulative probability stays within 1 - top_p, never the largest
     let mut order: Vec<usize> = (0..x.len()).collect();
-    order.sort_by(|&a, &b| x[a].partial_cmp(&x[b]).unwrap());
+    order.sort_by(|&a, &b| x[a].total_cmp(&x[b]));
     let top = x[*order.last().unwrap()];
     let mut p: Vec<f64> = order.iter().map(|&i| (x[i] - top).exp()).collect();
     let total: f64 = p.iter().sum();

@@ -2,7 +2,7 @@
 // Commands (the request header's "cmd"):
 //   load            {models_dir, data_dir, ort_dll, cuda, voice?}            -> {ok}   `voice`: a voice file to speak one short word in, so that the
 //                   first real sentence does not pay for loading the GPU kernels
-//   register_voice  {out}  body: a WAV file (any rate, mono or stereo)       -> {ok, seconds, tiled}   writes the voice file `out`
+//   register_voice  {out}  body: a WAV file (any rate, mono or stereo)       -> {ok, t3_tokens}   writes the voice file `out`
 //   synthesize      {text, voice, seed?, temperature?, stream?}              -> frames {ok, more: true, piece, pieces, text, rate, last}, body a
 //                   16-bit mono WAV at 24 kHz, then {ok, more: false}. The text is cut into pieces (about a sentence each). With `stream` every
 //                   piece comes as several frames (the first after about 0.3 s), each frame a WAV that continues the one before it (they are
@@ -40,6 +40,9 @@ fn seed_from(header: &Value) -> u64 {
 }
 
 fn handle(engine: &mut Option<Engine>, header: &Value, body: &[u8], out: &mut impl Write) -> Result<()> {
+    if header["too_large"] == true {
+        bail!("the request is larger than the server accepts");
+    }
     match text_param(header, "cmd")? {
         "load" => {
             let config = EngineConfig {
@@ -48,10 +51,18 @@ fn handle(engine: &mut Option<Engine>, header: &Value, body: &[u8], out: &mut im
                 ort_dll: text_param(header, "ort_dll")?.into(),
                 use_cuda: header["cuda"].as_bool().unwrap_or(true),
             };
+            // the old engine goes first: two of them at once would need twice the VRAM
+            *engine = None;
             let mut loaded = Engine::load(&config)?;
+            // The warm-up is only a courtesy: a voice file that is damaged (or from an older build) must not keep the engine from loading,
+            // or the user could not even register a new voice to replace it.
             if let Some(path) = header["voice"].as_str() {
-                let voice = Voice::load(Path::new(path))?;
-                loaded.synthesize(&voice, "Hello.", &SamplerSettings::default(), &mut Rng::new(1)).context("the warm-up synthesis")?;
+                let warm_up = Voice::load(Path::new(path)).and_then(|voice| {
+                    loaded.synthesize(&voice, "Hello.", &SamplerSettings::default(), &mut Rng::new(1)).context("the warm-up synthesis")
+                });
+                if let Err(error) = warm_up {
+                    eprintln!("chatterbox-server: the warm-up was skipped: {error:#}");
+                }
             }
             *engine = Some(loaded);
             write_frame(out, &json!({"ok": true}), &[])?;
@@ -73,28 +84,45 @@ fn handle(engine: &mut Option<Engine>, header: &Value, body: &[u8], out: &mut im
                 bail!("there is nothing to say in that text");
             }
             let count = pieces.len();
+            let mut spoken = 0;
             for (index, piece) in pieces.iter().enumerate() {
                 let frame = |last: bool| json!({"ok": true, "more": true, "piece": index, "pieces": count, "text": piece, "rate": RATE, "last": last});
+                // A piece that comes out empty (the model ended it at once: "..." or a lone tag) is skipped, and the rest of the text is spoken;
+                // the request fails only if nothing at all was said.
+                let skipped = |error: &anyhow::Error| error.to_string().starts_with("no speech came out");
                 if stream {
                     // a chunk is sent once the next one is there (or the piece ends), so `last` is known when it goes out
                     let mut pending: Option<Vec<f32>> = None;
-                    let mut result = engine.synthesize_streaming(&voice, piece, &settings, &mut rng, |chunk| {
+                    let result = engine.synthesize_streaming(&voice, piece, &settings, &mut rng, |chunk| {
                         if let Some(previous) = pending.replace(chunk.to_vec()) {
                             write_frame(out, &frame(false), &encode_wav(&previous, RATE))?;
                         }
                         Ok(())
                     });
-                    if result.is_ok() {
-                        match pending.take() {
-                            Some(last) => write_frame(out, &frame(true), &encode_wav(&last, RATE))?,
-                            None => result = Err(anyhow!("no speech came out of that text")),
-                        }
+                    match result {
+                        Ok(()) => match pending.take() {
+                            Some(last) => {
+                                write_frame(out, &frame(true), &encode_wav(&last, RATE))?;
+                                spoken += 1;
+                            }
+                            None => eprintln!("chatterbox-server: piece {index} came out empty: {piece:?}"),
+                        },
+                        Err(error) if skipped(&error) && pending.is_none() => eprintln!("chatterbox-server: piece {index} came out empty: {piece:?}"),
+                        Err(error) => return Err(error.context(format!("piece {index}: {piece:?}"))),
                     }
-                    result.with_context(|| format!("piece {index}: {piece:?}"))?;
                 } else {
-                    let wave = engine.synthesize(&voice, piece, &settings, &mut rng).with_context(|| format!("piece {index}: {piece:?}"))?;
-                    write_frame(out, &frame(true), &encode_wav(&wave, RATE))?;
+                    match engine.synthesize(&voice, piece, &settings, &mut rng) {
+                        Ok(wave) => {
+                            write_frame(out, &frame(true), &encode_wav(&wave, RATE))?;
+                            spoken += 1;
+                        }
+                        Err(error) if skipped(&error) => eprintln!("chatterbox-server: piece {index} came out empty: {piece:?}"),
+                        Err(error) => return Err(error.context(format!("piece {index}: {piece:?}"))),
+                    }
                 }
+            }
+            if spoken == 0 {
+                bail!("no speech came out of that text");
             }
             write_frame(out, &json!({"ok": true, "more": false}), &[])?;
         }

@@ -6,7 +6,7 @@ use crate::sampler::{draw, probabilities, Rng, SamplerSettings};
 use crate::text::punc_norm;
 use crate::voice::{Voice, MEL_BINS, T3_PROMPT_MAX};
 use crate::stream::{Joiner, FIRST_CHUNK, HOLD, MAX_CHUNK, SAMPLES_PER_TOKEN};
-use anyhow::{anyhow, bail, ensure, Context, Result};
+use anyhow::{anyhow, ensure, Context, Result};
 use ort::value::Tensor;
 
 const REFERENCE_RATE: u32 = 24000;
@@ -117,15 +117,18 @@ impl Engine {
     pub fn register_voice(&mut self, recording: &[u8]) -> Result<Voice> {
         let (audio, rate) = crate::wavio::decode_wav(recording)?;
         let mut wav24 = crate::resample::resample(&audio, rate, REFERENCE_RATE);
-        let seconds = wav24.len() as f64 / REFERENCE_RATE as f64;
-        ensure!(seconds >= MIN_SECONDS, "the recording is {seconds:.1} s long; at least {MIN_SECONDS} s of speech is needed");
-        let (_, gain) = crate::audio::loudness_and_gain(&wav24, REFERENCE_RATE)?;
+        let (loudness, gain) = crate::audio::loudness_and_gain(&wav24, REFERENCE_RATE)?;
+        ensure!(loudness.is_finite(), "there is no sound in the recording");
+        // the speech, without the silence at its ends: it is that which has to be long enough
+        let (from, to) = crate::audio::trim_bounds(&wav24);
+        let seconds = to.saturating_sub(from) as f64 / REFERENCE_RATE as f64;
+        ensure!(seconds >= MIN_SECONDS, "the recording holds {seconds:.1} s of speech; at least {MIN_SECONDS} s is needed");
         for v in wav24.iter_mut() {
             *v *= gain;
         }
         // The language model babbles on a prompt shorter than about 5 s (the original refuses it): a short recording is repeated, with a
         // little silence between the repeats, until it is long enough.
-        if seconds < TILE_TO_SECONDS {
+        if (wav24.len() as f64 / REFERENCE_RATE as f64) < TILE_TO_SECONDS {
             let clip = wav24.clone();
             let gap = vec![0f32; (TILE_GAP_SECONDS * REFERENCE_RATE as f64) as usize];
             while (wav24.len() as f64) < TILE_TO_SECONDS * REFERENCE_RATE as f64 {
@@ -160,9 +163,6 @@ impl Engine {
         let t3_tokens = outputs["t3_tokens"].try_extract_tensor::<i64>().map_err(ort_error)?.1.to_vec();
         let voice = Voice { speaker_cond, t3_tokens, dec_tokens, dec_feat, xvector };
         voice.validate().context("the encoders gave an unusable voice")?;
-        if voice.t3_tokens.len() < 50 {
-            bail!("the recording gave only {} speech tokens: is there speech in it?", voice.t3_tokens.len());
-        }
         Ok(voice)
     }
 }

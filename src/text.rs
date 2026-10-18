@@ -21,6 +21,31 @@ pub fn punc_norm(text: &str) -> String {
 }
 
 const SHORTEST_PIECE: usize = 24;
+const MAX_TAG_LENGTH: usize = 24;
+const ABBREVIATIONS: [&str; 22] = ["mr", "mrs", "ms", "dr", "prof", "sr", "jr", "st", "vs", "etc", "no", "inc", "ltd", "co", "mt", "gen", "col", "lt", "capt", "rev", "fig", "approx"];
+
+// Whether the "." "!" "?" or "…" at `i` ends a sentence: it is followed by a space or the end, and a "." is neither the dot of an abbreviation
+// ("Mr.", "e.g.", "U.S.", a lone capital letter) nor followed by a lowercase letter ("etc. and so on").
+fn ends_a_sentence(chars: &[char], i: usize) -> bool {
+    let followed = match chars.get(i + 1) {
+        None => return true,
+        Some(next) => next.is_whitespace(),
+    };
+    if !followed {
+        return false;
+    }
+    if chars[i] != '.' {
+        return true;
+    }
+    let word: String = chars[..i].iter().rev().take_while(|c| c.is_alphabetic() || **c == '.').collect::<Vec<_>>().into_iter().rev().collect();
+    let lowered = word.to_lowercase();
+    let abbreviation = ABBREVIATIONS.contains(&lowered.as_str()) || lowered.contains('.') || (word.chars().count() == 1 && word.chars().all(char::is_uppercase));
+    if abbreviation {
+        return false;
+    }
+    let next_letter = chars[i + 1..].iter().find(|c| !c.is_whitespace());
+    !next_letter.is_some_and(|c| c.is_lowercase())
+}
 const LONGEST_PIECE: usize = 300;
 
 // Cuts after . ! ? (and the ellipsis) that end a sentence: followed by a space or the end, and not inside a number or a tag like
@@ -30,16 +55,18 @@ pub fn split_pieces(text: &str) -> Vec<String> {
     let chars: Vec<char> = text.chars().collect();
     let mut sentences: Vec<String> = Vec::new();
     let mut current = String::new();
-    let mut in_tag = false;
+    // where the open tag began: a "[" that is never closed must not stop the cutting for the rest of the text
+    let mut tag_start: Option<usize> = None;
     for (i, &c) in chars.iter().enumerate() {
         current.push(c);
+        if tag_start.is_some_and(|start| i - start > MAX_TAG_LENGTH) {
+            tag_start = None;
+        }
         match c {
-            '[' => in_tag = true,
-            ']' => in_tag = false,
-            '.' | '!' | '?' | '…' if !in_tag => {
-                let next = chars.get(i + 1);
-                let ends = next.is_none_or(|n| n.is_whitespace());
-                if ends {
+            '[' => tag_start = Some(i),
+            ']' => tag_start = None,
+            '.' | '!' | '?' | '…' if tag_start.is_none() => {
+                if ends_a_sentence(&chars, i) {
                     sentences.push(std::mem::take(&mut current));
                 }
             }
@@ -116,6 +143,18 @@ mod tests {
         assert_eq!(p, vec!["Hi. I just got back from the convention, and honestly I am tired.", "Are you coming tomorrow? Yes!"]);
         let p = split_pieces("The price is 3.5 dollars today, which is a lot. [laugh] Anyway.");
         assert_eq!(p, vec!["The price is 3.5 dollars today, which is a lot. [laugh] Anyway."]);
+    }
+
+    #[test]
+    fn abbreviations_and_an_unclosed_tag_do_not_cut_a_sentence() {
+        let p = split_pieces("Yesterday I had lunch with Mr. Brown and his wife at the new place downtown. It was lovely.");
+        assert_eq!(p.len(), 1, "{p:?}");
+        let p = split_pieces("We sell apples, pears, etc. and other fruit at the market every single week. Come by!");
+        assert_eq!(p.len(), 1, "{p:?}");
+        let p = split_pieces("I live in the U.S. now, and I love the weather here a lot. Do you like it too? Tell me.");
+        assert_eq!(p.len(), 2, "{p:?}");
+        let text = format!("A broken [tag here and then a long sentence that goes on. {}", "Another sentence follows here. ".repeat(3));
+        assert!(split_pieces(&text).len() >= 2, "an unclosed tag stops the cutting");
     }
 
     #[test]

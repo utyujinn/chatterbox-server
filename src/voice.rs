@@ -34,6 +34,9 @@ impl Voice {
         ensure!(self.xvector.len() == XVECTOR, "the x-vector has {} numbers, not {XVECTOR}", self.xvector.len());
         ensure!(self.dec_feat.len() % MEL_BINS == 0 && !self.dec_feat.is_empty(), "the prompt mel is not a whole number of frames");
         ensure!(!self.t3_tokens.is_empty() && !self.dec_tokens.is_empty(), "the voice has no speech tokens");
+        // the decoder's prompt is two mel frames per token, and the mel may be one frame longer
+        let (td, frames) = (self.dec_tokens.len(), self.frames());
+        ensure!(frames == 2 * td || frames == 2 * td + 1, "the prompt mel has {frames} frames for {td} prompt tokens");
         ensure!(self.t3_tokens.iter().chain(&self.dec_tokens).all(|&t| (0..6561).contains(&t)), "a speech token is out of range");
         ensure!(self.speaker_cond.iter().chain(&self.xvector).chain(&self.dec_feat).all(|v| v.is_finite()), "the voice holds numbers that are not numbers");
         Ok(())
@@ -125,6 +128,9 @@ mod tests {
         let mut wrong = sample();
         wrong.xvector.pop();
         assert!(wrong.save(&path).is_err());
+        let mut mismatched = sample();
+        mismatched.dec_tokens.pop();
+        assert!(mismatched.save(&path).is_err());
         let mut out_of_range = sample();
         out_of_range.t3_tokens[0] = 7000;
         assert!(out_of_range.save(&path).is_err());

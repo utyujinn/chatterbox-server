@@ -1,4 +1,4 @@
-// A port of resampy's `kaiser_best` resampler (the one librosa uses by default), kept from openvoice-server: converters and encoders that
+// A port of resampy's `kaiser_best` resampler (the one librosa used by default before 0.10), kept from openvoice-server: converters and encoders that
 // were trained on audio resampled with it are sensitive to the filter's transition band, so a plain linear or short-sinc resampler
 // is not good enough. Phase tables are cached per ratio.
 // Zeroth order modified Bessel function of the first kind, by its power series (enough terms for the beta used here).

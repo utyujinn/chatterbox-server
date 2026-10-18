@@ -10,6 +10,9 @@ model.
 | [ResembleAI/chatterbox-turbo-ONNX](https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX) | MIT | the official ONNX export of the text/speech embeddings, the language model and the conditional decoder (the decoder's random nodes are replaced by fixed noise) |
 | CosyVoice, S3Tokenizer, HiFT-GAN, Real-Time-Voice-Cloning | see MODEL_LICENSES.md | the parts of Chatterbox that come from them (named in its acknowledgements) |
 | [ONNX Runtime](https://github.com/microsoft/onnxruntime) | MIT | inference |
+| [ort](https://github.com/pykeio/ort), [tokenizers](https://github.com/huggingface/tokenizers), hound, realfft, ebur128, serde | MIT / Apache-2.0 | linked into the executable |
+| [Oniguruma](https://github.com/kkos/oniguruma) (through `tokenizers`) | BSD-2-Clause | linked into the executable: Copyright (c) 2002-2021 K.Kosako |
+| [resampy](https://github.com/bmcfee/resampy) | ISC | `src/resample.rs` is a port of its `kaiser_best` resampler, filter constants included: Copyright (c) 2016, Brian McFee |
 | NVIDIA CUDA / cuDNN runtime | NVIDIA proprietary licenses | **Not redistributed by this repository.** Check the CUDA EULA / cuDNN SLA before shipping them. |
 
 The reference voice of the tests (`tests/golden/us_f_50s/ref.wav`) is a 12 s cut of a speaker of the GLOBE corpus (CC0, from Mozilla Common
