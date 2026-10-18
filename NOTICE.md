@@ -15,6 +15,8 @@ model.
 | [resampy](https://github.com/bmcfee/resampy) | ISC | `src/resample.rs` is a port of its `kaiser_best` resampler, filter constants included: Copyright (c) 2016, Brian McFee |
 | NVIDIA CUDA / cuDNN runtime | NVIDIA proprietary licenses | **Not redistributed by this repository.** Check the CUDA EULA / cuDNN SLA before shipping them. |
 
+`default.cbvoice` (release `models-v1`) is the built-in voice of Chatterbox Turbo (`conds.pt` of the original model, MIT, Resemble AI) in the format of this server (`tools/export_default_voice.py`): the server speaks in it when no reference voice is registered.
+
 The reference voice of the tests (`tests/golden/us_f_50s/ref.wav`) is a 12 s cut of a speaker of the GLOBE corpus (CC0, from Mozilla Common
 Voice), used here as test data only.
 
